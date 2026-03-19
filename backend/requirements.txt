@@ -1,0 +1,25 @@
+# API & server
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+python-multipart==0.0.9
+
+# AI
+anthropic>=0.40.0
+
+# Auth / JWT
+python-jose[cryptography]==3.3.0
+
+# Database
+sqlalchemy==2.0.30
+
+# RAG
+chromadb==0.5.0
+sentence-transformers==2.7.0
+
+# Scraping
+requests==2.32.3
+beautifulsoup4==4.12.3
+
+# Config
+pydantic-settings==2.2.1
+python-dotenv==1.0.1

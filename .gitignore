@@ -1,0 +1,38 @@
+# Secrets — never commit these
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env.local
+
+# Data (large, generated)
+backend/data/
+docs/
+*.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Node
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# DB
+*.db
+*.sqlite
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
