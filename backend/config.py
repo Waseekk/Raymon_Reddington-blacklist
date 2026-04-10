@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./reddington.db"
     daily_message_limit: int = 20
     frontend_url: str = "http://localhost:3000"
-    admin_email: str = "waseekirtefa@gmail.com"
+    admin_email: str = ""
 
 
 settings = Settings()  # type: ignore[call-arg]

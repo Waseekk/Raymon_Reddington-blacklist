@@ -290,6 +290,9 @@ export default function ChatInterface() {
             display: "flex",
             flexDirection: "column",
             position: "relative",
+            backgroundImage: "linear-gradient(rgba(10,8,8,0.86), rgba(10,8,8,0.86)), url('/rr-chat.jpg')",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
           }}
         >
           {!activeConvId ? (
