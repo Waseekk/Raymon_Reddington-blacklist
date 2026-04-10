@@ -5,7 +5,7 @@ from typing import List, Dict
 _model = None
 _chroma_client = None
 
-_CHROMA_PATH = "./data/chroma"
+_CHROMA_PATH = "./data/chroma_db"
 
 
 def _data_ready() -> bool:
