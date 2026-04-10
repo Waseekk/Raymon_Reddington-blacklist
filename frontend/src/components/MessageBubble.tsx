@@ -40,7 +40,7 @@ export default function MessageBubble({ role, content, streaming }: MessageBubbl
         <ReactMarkdown
           components={{
             p: ({ children }) => (
-              <p style={{ fontFamily: "Georgia, serif", color: "#E8E0D0", lineHeight: 1.8, fontSize: "0.95rem", marginBottom: "0.5rem" }}>
+              <p style={{ fontFamily: "Georgia, serif", color: "#E8E0D0", lineHeight: 1.85, fontSize: "1.05rem", marginBottom: "0.6rem" }}>
                 {children}
               </p>
             ),
@@ -57,7 +57,7 @@ export default function MessageBubble({ role, content, streaming }: MessageBubbl
               <ol style={{ paddingLeft: "1.5rem", color: "#E8E0D0", marginBottom: "0.5rem" }}>{children}</ol>
             ),
             li: ({ children }) => (
-              <li style={{ fontFamily: "Georgia, serif", color: "#E8E0D0", lineHeight: 1.7, fontSize: "0.95rem", marginBottom: "0.2rem" }}>{children}</li>
+              <li style={{ fontFamily: "Georgia, serif", color: "#E8E0D0", lineHeight: 1.75, fontSize: "1.05rem", marginBottom: "0.25rem" }}>{children}</li>
             ),
             code({ className, children, ...props }: any) {
               const isBlock = className?.includes("language-");
@@ -116,8 +116,8 @@ export default function MessageBubble({ role, content, streaming }: MessageBubbl
         style={{
           fontFamily: "Inter, sans-serif",
           color: "#C8C0B0",
-          lineHeight: 1.6,
-          fontSize: "0.9rem",
+          lineHeight: 1.7,
+          fontSize: "1rem",
         }}
       >
         {content}

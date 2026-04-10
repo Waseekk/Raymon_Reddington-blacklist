@@ -12,8 +12,8 @@ export default function UsageBar({ used, limit }: UsageBarProps) {
   return (
     <div style={{ padding: "0.75rem 1rem", borderTop: "1px solid #2A2020" }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-        <span style={{ color: "#8A7F70", fontSize: "0.75rem" }}>Daily Messages</span>
-        <span style={{ color: "#8A7F70", fontSize: "0.75rem" }}>
+        <span style={{ color: "#8A7F70", fontSize: "0.85rem" }}>Daily Messages</span>
+        <span style={{ color: "#8A7F70", fontSize: "0.85rem" }}>
           {used} / {limit} used today
         </span>
       </div>

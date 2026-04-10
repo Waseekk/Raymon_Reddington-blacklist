@@ -4,14 +4,14 @@
 
 :root {
   --bg-primary: #0A0A0A;
-  --bg-secondary: #111111;
+  --bg-secondary: #0D0D0D;
   --bg-card: #161010;
   --gold: #C9A84C;
-  --gold-dark: #A07830;
+  --gold-dim: rgba(201, 168, 76, 0.25);
   --burgundy: #6B1D1D;
   --text-primary: #E8E0D0;
   --text-muted: #8A7F70;
-  --border: #2A2020;
+  --border: #1E1A1A;
 }
 
 *,
@@ -31,24 +31,137 @@ body {
 }
 
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
-
 ::-webkit-scrollbar-track {
-  background: var(--bg-secondary);
+  background: transparent;
 }
-
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
+  background: #2A2020;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3A3020;
 }
 
-/* Sidebar desktop default */
+/* ─── LOGIN PAGE ─────────────────────────────────────────── */
+
+.login-root {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  position: relative;
+  overflow: hidden;
+  background: #0A0A0A;
+}
+
+.login-bg {
+  position: absolute;
+  inset: 0;
+  background-image: url('/reddington.jpg');
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+}
+
+.login-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to right,
+    rgba(10, 10, 10, 0.1) 0%,
+    rgba(10, 10, 10, 0.35) 28%,
+    rgba(10, 10, 10, 0.80) 55%,
+    rgba(10, 10, 10, 0.96) 100%
+  );
+}
+
+/* Vignette corners */
+.login-overlay::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.55) 100%);
+  pointer-events: none;
+}
+
+.login-card {
+  position: relative;
+  z-index: 10;
+  margin-right: 8vw;
+  width: min(460px, 90vw);
+  background: rgba(11, 8, 8, 0.90);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(201, 168, 76, 0.20);
+  border-radius: 16px;
+  padding: 2.5rem 2.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  box-shadow:
+    0 0 0 1px rgba(201, 168, 76, 0.04) inset,
+    0 0 80px rgba(201, 168, 76, 0.06),
+    0 28px 72px rgba(0, 0, 0, 0.9);
+  animation: rr-slide-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.login-btn {
+  width: 100%;
+  background: rgba(22, 16, 16, 0.9);
+  border: 1px solid rgba(201, 168, 76, 0.18);
+  border-radius: 8px;
+  color: #D8D0C0;
+  padding: 0.88rem 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  font-size: 0.95rem;
+  font-family: Inter, sans-serif;
+  letter-spacing: 0.03em;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s, color 0.2s;
+}
+
+.login-btn:hover {
+  border-color: rgba(201, 168, 76, 0.6);
+  background: rgba(201, 168, 76, 0.08);
+  color: #E8E0D0;
+  box-shadow: 0 0 24px rgba(201, 168, 76, 0.10);
+}
+
+@keyframes rr-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .login-root {
+    justify-content: center;
+    padding: 1.5rem;
+  }
+  .login-card {
+    margin-right: 0 !important;
+  }
+  .login-overlay {
+    background: rgba(10, 10, 10, 0.82);
+  }
+}
+
+/* ─── SIDEBAR ────────────────────────────────────────────── */
+
 .sidebar {
   flex-shrink: 0;
 }
 
-/* Mobile sidebar */
 @media (max-width: 768px) {
   .sidebar {
     position: fixed;
@@ -65,11 +178,8 @@ body {
   .sidebar-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.55);
+    background: rgba(0, 0, 0, 0.65);
     z-index: 40;
-  }
-  .login-image {
-    display: none !important;
   }
 }
 
@@ -79,21 +189,137 @@ body {
   }
 }
 
-/* Copy button on message bubbles */
+.new-conv-btn {
+  width: 100%;
+  background: linear-gradient(135deg, rgba(201,168,76,0.14), rgba(201,168,76,0.07));
+  border: 1px solid rgba(201, 168, 76, 0.32);
+  border-radius: 8px;
+  color: #C9A84C;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-family: Inter, sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.new-conv-btn:hover {
+  background: linear-gradient(135deg, rgba(201,168,76,0.22), rgba(201,168,76,0.12));
+  border-color: #C9A84C;
+  box-shadow: 0 0 18px rgba(201, 168, 76, 0.14);
+}
+
+.conv-item {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 1px;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.conv-item:hover {
+  background: rgba(201, 168, 76, 0.05);
+}
+
+.conv-btn {
+  flex: 1;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-left: 2px solid transparent;
+  color: #7A7268;
+  padding: 0.7rem 0.85rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: Inter, sans-serif;
+  transition: color 0.15s, border-color 0.15s;
+  border-radius: 0 6px 6px 0;
+  min-width: 0;
+}
+
+.conv-btn:hover {
+  color: #B8B0A0;
+}
+
+.conv-btn.active {
+  border-left-color: #C9A84C;
+  color: #E8E0D0;
+  background: rgba(201, 168, 76, 0.06);
+}
+
+.conv-delete-btn {
+  background: transparent;
+  border: none;
+  color: transparent;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0 8px;
+  line-height: 1;
+  transition: color 0.15s;
+  border-radius: 4px;
+  flex-shrink: 0;
+  height: 100%;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+}
+
+.conv-item:hover .conv-delete-btn {
+  color: #4A4540;
+}
+
+.conv-delete-btn:hover {
+  color: #c94444 !important;
+}
+
+/* ─── CHAT EMPTY STATE ───────────────────────────────────── */
+
+.begin-conv-btn {
+  background: transparent;
+  border: 1px solid rgba(201, 168, 76, 0.35);
+  border-radius: 8px;
+  color: #C9A84C;
+  padding: 0.85rem 2.5rem;
+  cursor: pointer;
+  font-size: 0.92rem;
+  font-family: Inter, sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.begin-conv-btn:hover {
+  background: rgba(201, 168, 76, 0.08);
+  border-color: #C9A84C;
+  box-shadow: 0 0 24px rgba(201, 168, 76, 0.12);
+}
+
+/* ─── MESSAGE BUBBLES ────────────────────────────────────── */
+
 .copy-btn {
   position: absolute;
   top: 0.5rem;
   right: 0.5rem;
-  background: #2A2020;
+  background: #1E1A1A;
   border: none;
   border-radius: 4px;
-  color: #8A7F70;
+  color: #6A6258;
   padding: 2px 8px;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.15s ease, color 0.15s ease;
   font-family: Inter, sans-serif;
+  letter-spacing: 0.04em;
 }
 
 .message-bubble:hover .copy-btn {

@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import type { Conversation, Usage } from "@/lib/api";
 import {
   getConversations,
+  getConversationMessages,
   createConversation,
   deleteConversation,
   getUsage,
@@ -39,6 +40,7 @@ export default function ChatInterface() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -53,20 +55,36 @@ export default function ChatInterface() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamingText]);
 
-  const handleSelectConv = (id: string) => {
+  const abortStream = () => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+    setIsStreaming(false);
+    setStreamingText("");
+  };
+
+  const handleSelectConv = async (id: string) => {
+    abortStream();
     setActiveConvId(id);
     setMessages([]);
-    setStreamingText("");
     setSidebarOpen(false);
+    if (!token) return;
+    try {
+      const msgs = await getConversationMessages(id, token);
+      setMessages(msgs);
+    } catch {
+      // conversation exists but messages failed — leave empty
+    }
   };
 
   const handleNewConv = async () => {
     if (!token) return;
+    abortStream();
     const conv = await createConversation(token);
     setConversations((prev) => [conv as Conversation, ...prev]);
     setActiveConvId(conv.id);
     setMessages([]);
-    setStreamingText("");
     setSidebarOpen(false);
   };
 
@@ -83,33 +101,42 @@ export default function ChatInterface() {
   const handleSend = async () => {
     if (!token || !activeConvId || !input.trim() || isStreaming) return;
     const msg = input.trim();
+    const convId = activeConvId; // capture before any state changes
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: msg }]);
     setIsStreaming(true);
     setStreamingText("");
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
       let accumulated = "";
       await streamChat(
-        activeConvId,
+        convId,
         msg,
         (chunk) => {
           accumulated += chunk;
           setStreamingText(accumulated);
         },
         token,
+        controller.signal,
       );
-      setMessages((prev) => [...prev, { role: "assistant", content: accumulated }]);
-      setStreamingText("");
-      getUsage(token).then(setUsage).catch(console.error);
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.id === activeConvId
-            ? { ...c, title: msg.slice(0, 35) + (msg.length > 35 ? "…" : "") }
-            : c,
-        ),
-      );
+      // Only commit the message if this stream was not aborted
+      if (!controller.signal.aborted) {
+        setMessages((prev) => [...prev, { role: "assistant", content: accumulated }]);
+        setStreamingText("");
+        getUsage(token).then(setUsage).catch(console.error);
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === convId
+              ? { ...c, title: msg.slice(0, 35) + (msg.length > 35 ? "…" : "") }
+              : c,
+          ),
+        );
+      }
     } catch (err: any) {
+      if (err?.name === "AbortError") return; // intentional switch — no toast
       toast.error(err?.message || "Something went wrong. Do try again.");
     } finally {
       setIsStreaming(false);
@@ -127,7 +154,19 @@ export default function ChatInterface() {
           background: "#0A0A0A",
         }}
       >
-        <p style={{ color: "#8A7F70", fontFamily: "Georgia, serif" }}>Loading...</p>
+        <div style={{ textAlign: "center" }}>
+          <div
+            style={{
+              width: 2,
+              height: 32,
+              background: "linear-gradient(to bottom, #C9A84C, transparent)",
+              margin: "0 auto 1rem",
+            }}
+          />
+          <p style={{ color: "#4A4540", fontFamily: "Georgia, serif", fontSize: "0.9rem", letterSpacing: "0.1em" }}>
+            Loading…
+          </p>
+        </div>
       </div>
     );
   }
@@ -154,18 +193,22 @@ export default function ChatInterface() {
 
       {/* Chat area */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
-        {/* Header */}
+
+        {/* ── Header ── */}
         <div
           style={{
-            padding: "1rem 1.5rem",
-            borderBottom: "1px solid #2A2020",
-            background: "#111111",
+            padding: "0 1.5rem",
+            height: 58,
+            borderBottom: "1px solid #1A1616",
+            background: "#0D0B0B",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
+            flexShrink: 0,
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.875rem" }}>
+            {/* Hamburger (mobile only) */}
             <button
               className="hamburger"
               onClick={() => setSidebarOpen((v) => !v)}
@@ -175,35 +218,59 @@ export default function ChatInterface() {
                 border: "none",
                 color: "#C9A84C",
                 cursor: "pointer",
-                fontSize: "1.25rem",
+                fontSize: "1.15rem",
                 padding: 0,
                 lineHeight: 1,
               }}
             >
               ☰
             </button>
+
+            {/* Gold separator bar */}
+            <div
+              style={{
+                width: 2,
+                height: 28,
+                background: "linear-gradient(to bottom, transparent, #C9A84C, transparent)",
+                opacity: 0.5,
+              }}
+            />
+
             <div>
-              <h1 style={{ fontFamily: "Georgia, serif", color: "#C9A84C", fontSize: "1.1rem" }}>
+              <h1
+                style={{
+                  fontFamily: "Georgia, serif",
+                  color: "#C9A84C",
+                  fontSize: "1.25rem",
+                  fontWeight: "normal",
+                  letterSpacing: "0.04em",
+                  lineHeight: 1.2,
+                }}
+              >
                 Raymond Reddington
               </h1>
-              <p style={{ color: "#8A7F70", fontSize: "0.75rem" }}>Concierge of Crime</p>
+              <p style={{ color: "#5A5450", fontSize: "0.78rem", letterSpacing: "0.12em", textTransform: "uppercase" }}>
+                Concierge of Crime
+              </p>
             </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.875rem" }}>
             {userHasOwnKey && (
               <span
                 style={{
-                  fontSize: "0.7rem",
+                  fontSize: "0.72rem",
                   color: "#C9A84C",
-                  border: "1px solid #C9A84C",
+                  border: "1px solid rgba(201,168,76,0.35)",
                   borderRadius: 4,
-                  padding: "2px 6px",
+                  padding: "2px 8px",
                   fontFamily: "Inter, sans-serif",
                   whiteSpace: "nowrap",
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
                 }}
               >
-                Own API key
+                Own Key
               </span>
             )}
             <UserMenu
@@ -215,50 +282,132 @@ export default function ChatInterface() {
           </div>
         </div>
 
-        {/* Messages */}
+        {/* ── Messages / Empty state ── */}
         <div
           style={{
             flex: 1,
             overflowY: "auto",
-            padding: "1.5rem",
             display: "flex",
             flexDirection: "column",
+            position: "relative",
           }}
         >
-          {!activeConvId && (
-            <div style={{ margin: "auto", textAlign: "center" }}>
-              <p
+          {!activeConvId ? (
+            /* ── Beautiful empty / welcome state ── */
+            <div
+              style={{
+                margin: "auto",
+                textAlign: "center",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "1.75rem",
+                padding: "2rem 1.5rem",
+              }}
+            >
+              {/* RR illustration — full image */}
+              <div
                 style={{
-                  fontFamily: "Georgia, serif",
-                  color: "#8A7F70",
-                  fontSize: "1rem",
-                  lineHeight: 1.8,
+                  borderRadius: 10,
+                  overflow: "hidden",
+                  border: "1px solid rgba(201, 168, 76, 0.22)",
+                  boxShadow:
+                    "0 0 0 5px rgba(201,168,76,0.04), 0 0 56px rgba(201,168,76,0.12)",
+                  flexShrink: 0,
+                  maxWidth: 220,
                 }}
               >
-                Select a conversation or start a new one.
-              </p>
+                <img
+                  src="/rr-art.jpg"
+                  alt="Raymond Reddington"
+                  style={{
+                    width: "100%",
+                    height: "auto",
+                    display: "block",
+                    filter: "contrast(1.05)",
+                  }}
+                />
+              </div>
+
+              {/* Name + quote */}
+              <div style={{ maxWidth: 420 }}>
+                <p
+                  style={{
+                    color: "#5A5450",
+                    fontSize: "0.75rem",
+                    letterSpacing: "0.22em",
+                    textTransform: "uppercase",
+                    fontFamily: "Inter, sans-serif",
+                    marginBottom: "0.5rem",
+                  }}
+                >
+                  The Blacklist
+                </p>
+                <h2
+                  style={{
+                    fontFamily: "Georgia, serif",
+                    color: "#C9A84C",
+                    fontSize: "1.9rem",
+                    fontWeight: "normal",
+                    letterSpacing: "0.04em",
+                    marginBottom: "1rem",
+                  }}
+                >
+                  Raymond Reddington
+                </h2>
+                <p
+                  style={{
+                    fontFamily: "Georgia, serif",
+                    color: "#6A6458",
+                    fontSize: "1.05rem",
+                    lineHeight: 1.85,
+                    fontStyle: "italic",
+                  }}
+                >
+                  &ldquo;The greatest criminals in the world aren&rsquo;t hiding in the
+                  shadows. They&rsquo;re the ones who convince you they&rsquo;re the
+                  heroes.&rdquo;
+                </p>
+              </div>
+
+              {/* CTA */}
+              <button className="begin-conv-btn" onClick={handleNewConv}>
+                Begin a Conversation
+              </button>
+            </div>
+          ) : (
+            /* ── Active conversation messages ── */
+            <div
+              style={{
+                padding: "1.75rem 1.5rem",
+                display: "flex",
+                flexDirection: "column",
+                minHeight: "100%",
+              }}
+            >
+              {messages.map((m, i) => (
+                <MessageBubble key={i} role={m.role} content={m.content} />
+              ))}
+              {isStreaming && streamingText && (
+                <MessageBubble role="assistant" content={streamingText} streaming />
+              )}
+              <div ref={messagesEndRef} />
             </div>
           )}
-          {messages.map((m, i) => (
-            <MessageBubble key={i} role={m.role} content={m.content} />
-          ))}
-          {isStreaming && streamingText && (
-            <MessageBubble role="assistant" content={streamingText} streaming />
-          )}
-          <div ref={messagesEndRef} />
         </div>
 
-        {/* Usage bar */}
+        {/* ── Usage bar ── */}
         {usage && <UsageBar used={usage.used} limit={usage.limit} />}
 
-        {/* Input */}
+        {/* ── Input area ── */}
         <div
           style={{
-            padding: "1rem 1.5rem",
-            borderTop: "1px solid #2A2020",
-            background: "#111111",
+            padding: "0.875rem 1.25rem",
+            borderTop: "1px solid #1A1616",
+            background: "#0D0B0B",
             display: "flex",
             gap: "0.75rem",
+            alignItems: "flex-end",
           }}
         >
           <textarea
@@ -271,37 +420,62 @@ export default function ChatInterface() {
               }
             }}
             disabled={!activeConvId || isStreaming}
-            placeholder={activeConvId ? "Speak your mind..." : "Select a conversation to begin"}
+            placeholder={
+              activeConvId ? "Speak your mind…" : "Select or begin a conversation"
+            }
             rows={1}
             style={{
               flex: 1,
-              background: "#1a1414",
-              border: "1px solid #2A2020",
-              borderRadius: 8,
+              background: "#141010",
+              border: "1px solid #221E1E",
+              borderRadius: 10,
               color: "#E8E0D0",
-              padding: "0.75rem 1rem",
-              fontSize: "0.9rem",
+              padding: "0.8rem 1.1rem",
+              fontSize: "1rem",
               resize: "none",
               outline: "none",
               fontFamily: "Inter, sans-serif",
+              lineHeight: 1.6,
+              transition: "border-color 0.2s",
+              maxHeight: 160,
+              overflowY: "auto",
             }}
+            onFocus={(e) => (e.target.style.borderColor = "rgba(201,168,76,0.3)")}
+            onBlur={(e) => (e.target.style.borderColor = "#221E1E")}
           />
           <button
             onClick={handleSend}
             disabled={!activeConvId || isStreaming || !input.trim()}
             style={{
-              background: "#C9A84C",
-              border: "none",
-              borderRadius: 8,
-              color: "#0A0A0A",
-              padding: "0.75rem 1.25rem",
-              cursor: "pointer",
-              fontSize: "0.9rem",
+              background:
+                !activeConvId || isStreaming || !input.trim()
+                  ? "#1A1414"
+                  : "linear-gradient(135deg, #C9A84C, #A07830)",
+              border: "1px solid",
+              borderColor:
+                !activeConvId || isStreaming || !input.trim()
+                  ? "#252020"
+                  : "transparent",
+              borderRadius: 10,
+              color:
+                !activeConvId || isStreaming || !input.trim()
+                  ? "#3A3530"
+                  : "#0A0A0A",
+              padding: "0.8rem 1.4rem",
+              cursor:
+                !activeConvId || isStreaming || !input.trim()
+                  ? "not-allowed"
+                  : "pointer",
+              fontSize: "0.95rem",
               fontWeight: 600,
-              opacity: !activeConvId || isStreaming || !input.trim() ? 0.5 : 1,
+              fontFamily: "Inter, sans-serif",
+              letterSpacing: "0.04em",
+              transition: "all 0.2s",
+              whiteSpace: "nowrap",
+              flexShrink: 0,
             }}
           >
-            Send
+            {isStreaming ? "…" : "Send"}
           </button>
         </div>
       </div>
