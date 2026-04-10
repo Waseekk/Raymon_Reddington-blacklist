@@ -38,6 +38,18 @@ export async function createConversation(token: string): Promise<{ id: string; t
   return res.json();
 }
 
+export async function getConversationMessages(
+  convId: string,
+  token: string,
+): Promise<{ role: "user" | "assistant"; content: string }[]> {
+  const res = await fetch(`${BACKEND_URL}/api/conversations/${convId}/messages`, {
+    headers: authHeaders(token),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error("Failed to load messages");
+  return res.json();
+}
+
 export async function deleteConversation(id: string, token: string): Promise<void> {
   const res = await fetch(`${BACKEND_URL}/api/conversations/${id}`, {
     method: "DELETE",
@@ -89,6 +101,45 @@ export async function updateSettings(token: string, apiKey: string | null): Prom
   return res.json();
 }
 
+export interface AdminConversation {
+  id: string;
+  title: string;
+  message_count: number;
+  updated_at: string | null;
+  created_at: string | null;
+}
+
+export interface AdminMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  created_at: string | null;
+}
+
+export async function getAdminUserConversations(
+  userId: string,
+  token: string,
+): Promise<AdminConversation[]> {
+  const res = await fetch(
+    `${BACKEND_URL}/api/admin/users/${encodeURIComponent(userId)}/conversations`,
+    { headers: authHeaders(token), cache: "no-store" },
+  );
+  if (!res.ok) throw new Error("Failed to fetch user conversations");
+  return res.json();
+}
+
+export async function getAdminConversationMessages(
+  convId: string,
+  token: string,
+): Promise<{ conversation: { id: string; title: string; user_id: string }; messages: AdminMessage[] }> {
+  const res = await fetch(`${BACKEND_URL}/api/admin/conversations/${convId}/messages`, {
+    headers: authHeaders(token),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error("Failed to fetch conversation messages");
+  return res.json();
+}
+
 export async function getUsage(token: string): Promise<Usage> {
   const res = await fetch(`${BACKEND_URL}/api/usage`, {
     headers: authHeaders(token),
@@ -103,12 +154,14 @@ export async function streamChat(
   message: string,
   onChunk: (chunk: string) => void,
   token: string,
+  signal?: AbortSignal,
 ): Promise<void> {
   const res = await fetch(`${BACKEND_URL}/api/chat`, {
     method: "POST",
     headers: authHeaders(token),
     body: JSON.stringify({ conversation_id: convId, message }),
     cache: "no-store",
+    signal,
   });
 
   if (!res.ok) throw new Error(`Chat error: ${res.status}`);

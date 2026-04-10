@@ -38,3 +38,61 @@ def list_users(db: Session = Depends(get_db), _: User = Depends(require_admin)):
             "messages": msg_count,
         })
     return {"total": len(result), "users": result}
+
+
+@router.get("/users/{user_id}/conversations")
+def list_user_conversations(
+    user_id: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    convs = (
+        db.query(Conversation)
+        .filter_by(user_id=user_id)
+        .order_by(Conversation.updated_at.desc())
+        .all()
+    )
+    result = []
+    for c in convs:
+        msg_count = db.query(func.count(Message.id)).filter_by(conv_id=c.id).scalar()
+        result.append({
+            "id": c.id,
+            "title": c.title or "New Conversation",
+            "message_count": msg_count,
+            "updated_at": c.updated_at.isoformat() if c.updated_at else None,
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+        })
+    return result
+
+
+@router.get("/conversations/{conv_id}/messages")
+def get_conversation_messages(
+    conv_id: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    conv = db.query(Conversation).filter_by(id=conv_id).first()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    msgs = (
+        db.query(Message)
+        .filter_by(conv_id=conv_id)
+        .order_by(Message.created_at.asc())
+        .all()
+    )
+    return {
+        "conversation": {
+            "id": conv.id,
+            "title": conv.title or "New Conversation",
+            "user_id": conv.user_id,
+        },
+        "messages": [
+            {
+                "id": m.id,
+                "role": m.role,
+                "content": m.content,
+                "created_at": m.created_at.isoformat() if m.created_at else None,
+            }
+            for m in msgs
+        ],
+    }
