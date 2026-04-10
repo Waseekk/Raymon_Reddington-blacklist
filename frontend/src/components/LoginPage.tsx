@@ -18,7 +18,7 @@ export default function LoginPage() {
           bottom: "1.75rem",
           left: "50%",
           transform: "translateX(-50%)",
-          color: "rgba(201, 168, 76, 0.18)",
+          color: "rgba(201, 168, 76, 0.55)",
           fontFamily: "Georgia, serif",
           fontSize: "clamp(0.6rem, 1.1vw, 0.78rem)",
           textAlign: "center",
