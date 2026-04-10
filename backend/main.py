@@ -3,7 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
 from database.init_db import init as init_db
-from routers import usage, conversations, chat, admin, settings
+from routers import usage, conversations, chat, admin
+from routers import settings as settings_router
 
 app = FastAPI(title="Raymond Reddington API")
 
@@ -19,7 +20,7 @@ app.include_router(usage.router, prefix="/api")
 app.include_router(conversations.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
-app.include_router(settings.router, prefix="/api")
+app.include_router(settings_router.router, prefix="/api")
 
 
 @app.on_event("startup")

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
 from database.engine import get_db
-from database.models import Conversation, User
+from database.models import Conversation, Message, User
 
 router = APIRouter()
 
@@ -26,6 +26,24 @@ def list_conversations(user: User = Depends(get_current_user), db: Session = Dep
         }
         for c in convs
     ]
+
+
+@router.get("/conversations/{conv_id}/messages")
+def get_messages(
+    conv_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    conv = db.query(Conversation).filter_by(id=conv_id, user_id=user.id).first()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    msgs = (
+        db.query(Message)
+        .filter_by(conv_id=conv_id)
+        .order_by(Message.created_at.asc())
+        .all()
+    )
+    return [{"role": m.role, "content": m.content} for m in msgs]
 
 
 @router.post("/conversations", status_code=201)
