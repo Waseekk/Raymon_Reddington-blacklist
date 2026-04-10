@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
-from config import settings
 from database.engine import get_db
 from database.models import User, UserUsage
+from services import config_store
 
 router = APIRouter()
 
@@ -25,7 +25,7 @@ def _reset_at() -> str:
 def get_usage(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     row = db.query(UserUsage).filter_by(user_id=user.id, date=_today()).first()
     used = row.msg_count if row else 0
-    limit = settings.daily_message_limit
+    limit = config_store.get_daily_limit(db)
     return {
         "used": used,
         "limit": limit,

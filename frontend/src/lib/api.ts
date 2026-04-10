@@ -140,6 +140,32 @@ export async function getAdminConversationMessages(
   return res.json();
 }
 
+export interface AdminConfig {
+  daily_message_limit: number;
+}
+
+export async function getAdminConfig(token: string): Promise<AdminConfig> {
+  const res = await fetch(`${BACKEND_URL}/api/admin/config`, {
+    headers: authHeaders(token),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error("Failed to fetch admin config");
+  return res.json();
+}
+
+export async function updateAdminConfig(
+  token: string,
+  patch: Partial<AdminConfig>,
+): Promise<AdminConfig> {
+  const res = await fetch(`${BACKEND_URL}/api/admin/config`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) throw new Error("Failed to update admin config");
+  return res.json();
+}
+
 export async function getUsage(token: string): Promise<Usage> {
   const res = await fetch(`${BACKEND_URL}/api/usage`, {
     headers: authHeaders(token),

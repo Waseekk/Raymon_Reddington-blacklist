@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -6,8 +7,13 @@ from auth.dependencies import get_current_user
 from config import settings
 from database.engine import get_db
 from database.models import User, Conversation, Message
+from services import config_store
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+class ConfigUpdate(BaseModel):
+    daily_message_limit: int | None = None
 
 
 def require_admin(current_user: User = Depends(get_current_user)):
@@ -96,3 +102,21 @@ def get_conversation_messages(
             for m in msgs
         ],
     }
+
+
+@router.get("/config")
+def get_config(db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    return {"daily_message_limit": config_store.get_daily_limit(db)}
+
+
+@router.patch("/config")
+def update_config(
+    body: ConfigUpdate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    if body.daily_message_limit is not None:
+        if body.daily_message_limit < 1:
+            raise HTTPException(status_code=400, detail="Limit must be at least 1.")
+        config_store.set_daily_limit(db, body.daily_message_limit)
+    return {"daily_message_limit": config_store.get_daily_limit(db)}

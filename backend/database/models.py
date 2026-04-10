@@ -67,3 +67,11 @@ class UserUsage(Base):
     __table_args__ = (UniqueConstraint("user_id", "date", name="uq_user_date"),)
 
     user = relationship("User", back_populates="usage")
+
+
+class AppConfig(Base):
+    """Global key-value config table — editable from the admin panel."""
+    __tablename__ = "app_config"
+
+    key = Column(String, primary_key=True)
+    value = Column(String, nullable=False)
