@@ -2,6 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
+
+const ADMIN_EMAIL = "waseekirtefa@gmail.com";
 
 interface Props {
   name: string;
@@ -13,6 +16,7 @@ interface Props {
 export default function UserMenu({ name, email, image, onOpenSettings }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -112,19 +116,28 @@ export default function UserMenu({ name, email, image, onOpenSettings }: Props) 
 
           {/* Menu items */}
           <button
-            onClick={() => {
-              setOpen(false);
-              onOpenSettings();
-            }}
+            onClick={() => { setOpen(false); onOpenSettings(); }}
             style={menuItemStyle}
             onMouseOver={(e) => (e.currentTarget.style.background = "#1a1414")}
             onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}
           >
             Settings
           </button>
+
+          {email === ADMIN_EMAIL && (
+            <button
+              onClick={() => { setOpen(false); router.push("/admin"); }}
+              style={{ ...menuItemStyle, color: "#C9A84C" }}
+              onMouseOver={(e) => (e.currentTarget.style.background = "#1a1414")}
+              onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}
+            >
+              Admin Panel
+            </button>
+          )}
+
           <button
             onClick={() => signOut({ callbackUrl: "/" })}
-            style={{ ...menuItemStyle, color: "#C9A84C" }}
+            style={{ ...menuItemStyle, color: "#8A7F70", borderTop: "1px solid #2A2020" }}
             onMouseOver={(e) => (e.currentTarget.style.background = "#1a1414")}
             onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}
           >
