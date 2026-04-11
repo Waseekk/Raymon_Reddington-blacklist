@@ -9,10 +9,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy source
 COPY . .
 
-# Persistent data directory (mount a Railway volume here)
+# Persistent data directory
 RUN mkdir -p /app/data
 
 EXPOSE 8000
 
-# Railway injects $PORT at runtime
+# Koyeb (and Railway) inject $PORT at runtime
 CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
