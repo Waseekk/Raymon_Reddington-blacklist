@@ -65,8 +65,8 @@ def main():
             {
                 "episode": c.episode,
                 "season": c.season,
-                "speaker": c.speaker,
-                "is_red": str(c.is_red),  # ChromaDB metadata values must be str/int/float
+                "is_red": str(c.is_red),
+                "has_context": str(getattr(c, "has_context", False)),
             }
             for c in chunks
         ]

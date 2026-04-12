@@ -19,6 +19,7 @@ sentence-transformers==2.7.0
 # Scraping
 requests==2.32.3
 beautifulsoup4==4.12.3
+lxml==5.2.1
 
 # Config
 pydantic-settings==2.2.1
