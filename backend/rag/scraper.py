@@ -1,8 +1,9 @@
 """
-Scrape all Blacklist episode transcripts from blacklistdcd.com.
+Scrape Blacklist episode transcripts from blacklistdcd.com.
 
-Source: https://blacklistdcd.com — full screenplay-style transcripts with
-stage directions, scene context, music cues, and emotional tone in [ brackets ].
+Accessible sources (Cloudflare blocks ?p=XXXX query-param URLs):
+  S1, S3, S6  — season compilation pages (one big page per season)
+  S9, S10     — individual dated permalink URLs from the index page
 
 Usage:
     cd backend
@@ -13,6 +14,7 @@ Safe to re-run — already-downloaded files are skipped.
 
 import re
 import time
+import random
 import logging
 from pathlib import Path
 
@@ -33,124 +35,86 @@ INDEX_URL = (
 )
 OUT_DIR = Path(__file__).parent.parent / "data" / "transcripts"
 
-# Full browser-like headers to reduce rate-limit risk
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/124.0.0.0 Safari/537.36"
     ),
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.9",
-    "Accept-Encoding": "gzip, deflate, br",
-    "Connection": "keep-alive",
-    "Upgrade-Insecure-Requests": "1",
-    "Sec-Fetch-Dest": "document",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-Site": "none",
-    "Sec-Fetch-User": "?1",
-    "Cache-Control": "max-age=0",
 }
 
-DELAY = 30.0       # seconds between episode downloads
-MAX_RETRIES = 3    # reduced — with 30s delay, retries are less needed
+# Full season compilation pages — one URL contains all episodes for that season
+COMPILATION_PAGES = {
+    1: "https://blacklistdcd.com/2012/01/12/%f0%9f%94%b4-season-one-scripts/",
+    3: "https://blacklistdcd.com/2012/03/03/%f0%9f%94%b4-easy-search-s3-scripts/",
+    6: "https://blacklistdcd.com/2012/06/06/%f0%9f%94%b4-easy-search-s6-scripts-%e2%ac%85%ef%b8%8f%ee%81%8a/",
+}
+
+# Seasons with individual dated permalink URLs in the index (S9, S10)
+DIRECT_SEASONS = {9, 10}
+
+DELAY_MIN = 25.0
+DELAY_MAX = 40.0
+MAX_RETRIES = 3
 
 
-def make_session() -> requests.Session:
-    """Create a session with browser-like headers."""
-    session = requests.Session()
-    session.headers.update(HEADERS)
-    return session
-
-
-def get(session: requests.Session, url: str) -> requests.Response:
-    """GET with retries and exponential backoff. Follows redirects automatically."""
+def get(url: str) -> requests.Response:
+    """Stateless GET with retries and backoff."""
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            resp = session.get(url, timeout=30, allow_redirects=True)
+            resp = requests.get(url, headers=HEADERS, timeout=30, allow_redirects=True)
             if resp.status_code == 429:
-                wait = 60 * attempt  # back off hard on rate limit
-                log.warning(
-                    f"Rate limited (429) from {resp.url}. "
-                    f"Waiting {wait}s before retry {attempt}…"
-                )
+                wait = 60 * attempt
+                log.warning(f"429 from {resp.url}. Waiting {wait}s (retry {attempt})…")
                 time.sleep(wait)
                 continue
             resp.raise_for_status()
             return resp
         except requests.RequestException as exc:
             wait = 2 ** attempt
-            log.warning(f"Attempt {attempt} failed for {url}: {exc}. Retrying in {wait}s…")
+            log.warning(f"Attempt {attempt} failed for {url}: {exc}. Retry in {wait}s…")
             time.sleep(wait)
     raise RuntimeError(f"Failed to fetch {url} after {MAX_RETRIES} attempts")
 
 
-def parse_episode_links(html: str) -> list[dict]:
-    """
-    Extract individual episode script links from the all-scripts index page.
-    Only returns links whose label matches the episode pattern (e.g. "Episode 1:1").
-    Excludes anchor links, highlight reels, song pages, and compilation pages.
-    """
+def parse_direct_links(html: str) -> dict[tuple, str]:
+    """Find direct dated permalink links for episodes (S9, S10) in the index page."""
     soup = BeautifulSoup(html, "lxml")
-    episodes = []
+    DATED_RE = re.compile(r"blacklistdcd\.com/\d{4}/\d{2}/\d{2}/")
+    EPISODE_NUM_RE = re.compile(r"(\d+):(\d+)")
+    direct_map = {}
     seen = set()
-
-    # Episode label must contain "Season:Episode" number like "1:1" or "10:22"
-    EPISODE_NUM_RE = re.compile(r"\d+:\d+")
-
-    for a in soup.find_all("a", href=re.compile(r"wp\.me/", re.IGNORECASE)):
+    for a in soup.find_all("a", href=True):
         href = a["href"].strip()
-
-        # Skip anchor links (they point to sections within compilation pages)
-        if "#" in href:
+        if not DATED_RE.search(href) or "#" in href or "?" in href:
             continue
-
-        label = a.get_text(separator=" ", strip=True)
-
-        # Must look like an episode (contains "N:N" pattern)
-        if not EPISODE_NUM_RE.search(label):
-            continue
-
         if href in seen:
             continue
+        label = a.get_text(separator=" ", strip=True)
+        m = EPISODE_NUM_RE.search(label)
+        if not m:
+            continue
         seen.add(href)
-
-        episodes.append({"label": label, "url": href})
-
-    return episodes
+        key = (int(m.group(1)), int(m.group(2)))
+        direct_map[key] = (href, label)
+    return direct_map
 
 
 def label_to_filename(label: str, index: int) -> str:
-    """
-    Convert episode label to a filename.
-    e.g. "⭕ Episode 1:1 Pilot" → "S01E01_Pilot.txt"
-    Falls back to "episode_NNN.txt" if pattern not matched.
-    """
-    # Try to match season:episode pattern like "1:1" or "10:22"
     m = re.search(r"(\d+):(\d+)\s*(.*)", label)
     if m:
-        season = int(m.group(1))
-        episode = int(m.group(2))
-        title = m.group(3).strip()
-        # Clean title for filename
-        title = re.sub(r"[^\w\s-]", "", title)
-        title = re.sub(r"[\s-]+", "_", title).strip("_")
-        title = title[:40]  # cap length
+        season, episode = int(m.group(1)), int(m.group(2))
+        title = re.sub(r"[^\w\s-]", "", m.group(3).strip())
+        title = re.sub(r"[\s-]+", "_", title).strip("_")[:40]
         base = f"S{season:02d}E{episode:02d}"
         return f"{base}_{title}.txt" if title else f"{base}.txt"
-    # Fallback
     return f"episode_{index:03d}.txt"
 
 
 def extract_transcript(html: str) -> str:
-    """
-    Extract the screenplay text from an episode page.
-    blacklistdcd.com uses WordPress — content is in .entry-content div.
-    Preserves stage directions in [ brackets ] and scene breaks ⋘⋙.
-    """
     soup = BeautifulSoup(html, "lxml")
-
-    # Try common WordPress content containers
     for selector in [
         {"class_": "entry-content"},
         {"class_": "post-content"},
@@ -160,67 +124,91 @@ def extract_transcript(html: str) -> str:
         container = soup.find("div", **selector)
         if container:
             return container.get_text(separator="\n").strip()
-
-    # Fallback: largest text block
     paragraphs = soup.find_all("p")
     if paragraphs:
         return "\n".join(p.get_text() for p in paragraphs).strip()
-
     return soup.get_text(separator="\n").strip()
+
+
+def pause():
+    delay = random.uniform(DELAY_MIN, DELAY_MAX)
+    log.info(f"  Waiting {delay:.1f}s…")
+    time.sleep(delay)
 
 
 def main():
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    session = make_session()
+    log.info("Fetching episode index…")
+    index_html = get(INDEX_URL).text
+    direct_map = parse_direct_links(index_html)
 
-    log.info("Fetching episode index from blacklistdcd.com…")
-    index_html = get(session, INDEX_URL).text
-    episodes = parse_episode_links(index_html)
-
-    if not episodes:
-        log.error("No episode links found — page structure may have changed.")
-        return
-
-    log.info(f"Found {len(episodes)} episode links.")
-    log.info("Waiting 15s before starting downloads to avoid rate limiting…")
-    time.sleep(15)
+    # Filter to only direct-season episodes (S9, S10)
+    direct_episodes = {
+        key: val for key, val in direct_map.items()
+        if key[0] in DIRECT_SEASONS
+    }
+    log.info(f"Found {len(direct_episodes)} direct dated links for S9/S10.")
 
     success, skipped, failed = 0, 0, 0
 
-    for i, ep in enumerate(episodes, 1):
-        filename = label_to_filename(ep["label"], i)
+    # -----------------------------------------------------------------------
+    # 1. Individual S9 and S10 episodes via direct dated URLs
+    # -----------------------------------------------------------------------
+    log.info("\n--- Downloading S9 and S10 individual episodes ---")
+    for i, ((season, ep_num), (url, label)) in enumerate(
+        sorted(direct_episodes.items()), 1
+    ):
+        filename = label_to_filename(label, i)
         out_path = OUT_DIR / filename
 
         if out_path.exists():
-            log.info(f"[{i}/{len(episodes)}] SKIP (exists): {filename}")
+            log.info(f"SKIP (exists): {filename}")
             skipped += 1
             continue
 
-        log.info(f"[{i}/{len(episodes)}] Downloading: {ep['label']}")
+        pause()
+        log.info(f"[S{season:02d}E{ep_num:02d}] {label}")
         try:
-            # Set Referer to look like we're navigating from the index page
-            session.headers["Referer"] = INDEX_URL
-            html = get(session, ep["url"]).text
+            html = get(url).text
             transcript = extract_transcript(html)
-
             if len(transcript) < 200:
-                log.warning(f"  Very short transcript ({len(transcript)} chars) — may be wrong page")
-
+                log.warning(f"  Very short ({len(transcript)} chars)")
             out_path.write_text(transcript, encoding="utf-8")
-            log.info(f"  Saved {len(transcript):,} chars to {filename}")
+            log.info(f"  Saved {len(transcript):,} chars → {filename}")
             success += 1
         except Exception as exc:
-            log.error(f"  ERROR for {ep['label']}: {exc}")
+            log.error(f"  ERROR: {exc}")
             failed += 1
 
-        if i < len(episodes):
-            log.info(f"  Waiting {DELAY}s before next episode…")
-            time.sleep(DELAY)
+    # -----------------------------------------------------------------------
+    # 2. Season compilation pages for S1, S3, S6
+    # -----------------------------------------------------------------------
+    log.info("\n--- Downloading season compilation pages (S1, S3, S6) ---")
+    for season, comp_url in COMPILATION_PAGES.items():
+        out_path = OUT_DIR / f"S{season:02d}_compiled.txt"
+        if out_path.exists():
+            log.info(f"SKIP (exists): S{season:02d}_compiled.txt")
+            skipped += 1
+            continue
+
+        pause()
+        log.info(f"S{season:02d} compilation page…")
+        try:
+            html = get(comp_url).text
+            transcript = extract_transcript(html)
+            if len(transcript) < 1000:
+                log.warning(f"  Very short ({len(transcript)} chars)")
+            out_path.write_text(transcript, encoding="utf-8")
+            log.info(f"  Saved {len(transcript):,} chars → S{season:02d}_compiled.txt")
+            success += 1
+        except Exception as exc:
+            log.error(f"  ERROR for S{season:02d}: {exc}")
+            failed += 1
 
     log.info(
         f"\nDone. {success} downloaded, {skipped} skipped, {failed} failed."
-        f"\nTranscripts saved to: {OUT_DIR}"
+        f"\nTranscripts in: {OUT_DIR}"
     )
 
 

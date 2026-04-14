@@ -197,8 +197,9 @@ def _build_chunks(lines: list[ParsedLine], episode: str, season: int) -> list[Ch
 
 
 def _parse_season_episode(filename: str) -> tuple[int, str]:
-    """Extract season number and episode label from filename like S01E01_Pilot.txt"""
-    m = re.match(r"S(\d+)E\d+", filename, re.IGNORECASE)
+    """Extract season number and episode label from filename.
+    Handles both S01E01_Pilot.txt and S01_compiled.txt formats."""
+    m = re.match(r"S(\d+)", filename, re.IGNORECASE)
     season = int(m.group(1)) if m else 0
     episode = Path(filename).stem
     return season, episode
